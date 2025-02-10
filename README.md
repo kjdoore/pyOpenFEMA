@@ -12,9 +12,9 @@ First clone the repo to your machine:
 ```sh
 git clone https://github.com/kjdoore/pyOpenFEMA.git
 ```
-Then it can be installed locally using pip
+Then it can be installed using pip
 ```sh
-pip install ./pyOpenFEMA
+pip install pyOpenFEMA
 ```
 
 ## Basic Usage
