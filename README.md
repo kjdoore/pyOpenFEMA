@@ -8,11 +8,7 @@ Users can either read in the full dataset or read in a subset of a dataset.
 Please report any bugs, suggest enhancements, or ask questions by creating an [issue](https://github.com/kjdoore/pyOpenFEMA/issues).
   
 ## Installation
-First clone the repo to your machine:
-```sh
-git clone https://github.com/kjdoore/pyOpenFEMA.git
-```
-Then it can be installed using pip
+The package can be installed using pip
 ```sh
 pip install pyOpenFEMA
 ```

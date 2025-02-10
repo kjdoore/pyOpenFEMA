@@ -51,3 +51,6 @@ dev = [
 [project.urls]
 homepage = "https://github.com/kjdoore/pyOpenFEMA"
 repository = "https://github.com/kjdoore/pyOpenFEMA.git"
+
+[tool.setuptools_scm]
+write_to = "pyOpenFEMA/_version.py"
