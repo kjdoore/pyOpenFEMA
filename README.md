@@ -33,4 +33,4 @@ print(openfema.list_datasets())
 df_femaregions = openfema.read_dataset('FemaRegions')
 ```
 
-For more details and how to subset a dataset, see the [tutorial notebook](https://github.com/kjdoore/OpenFEMA/blob/main/examles/tutorial.ipynb).
+For more details and how to subset a dataset, see the [tutorial notebook](https://github.com/kjdoore/OpenFEMA/blob/main/examples/tutorial.ipynb).
