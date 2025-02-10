@@ -7,7 +7,7 @@ import geopandas as gpd
 import json
 import yaml
 import warnings
-from OpenFEMA.api_url_generator import generate_url
+from pyOpenFEMA.api_url_generator import generate_url
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -228,42 +228,38 @@ class OpenFEMA():
             The dataframe containing the dataset.
         """
         # Get the possible file formats from the metadata dataset
-        format_dicts = [json.loads(format_str)
+        file_formats = [json.loads(format_str)['format']
                         for format_str in self.dataset_info(dataset)['distribution']]
-        file_formats_urls = {format_dict['format']: format_dict['accessURL']
-                             for format_dict in format_dicts}
-        # drop standard json and jsonl in favor of jsona, which reads better into pandas
-        _ = file_formats_urls.pop('json', None)
-        _ = file_formats_urls.pop('jsonl', None)
 
+        # Get the API URL
+        web_service_url = self.dataset_info(dataset)['webService']
+        
         # Get the columns and dtypes of the dataset
         column_dtypes = self._get_dataset_dtype(dataset)
 
-        # Get the URL of the dataset
-        # We will select the URL in a preferential order of parquet, then csv, then jsona
+        # We will select the file format in a preferential order of parquet, then csv, then jsona
         # However, if the dataset is geospatial, select a geojson first if possible
-        if 'geojson' in file_formats_urls:
-            url = file_formats_urls['geojson']
-        elif 'parquet' in file_formats_urls:
-            url = file_formats_urls['parquet']
-        elif 'csv' in file_formats_urls:
-            url = file_formats_urls['csv']
-        elif 'jsona' in file_formats_urls:
-            url = file_formats_urls['jsona']
+        if 'geojson' in file_formats:
+            file_format = 'geojson'
+        elif 'parquet' in file_formats:
+            file_format = 'parquet'
+        elif 'csv' in file_formats:
+            file_format = 'csv'
+        elif 'jsona' in file_formats:
+            file_format = 'jsona'
 
-        # If any subset keywords are not None (i.e. specified) then pass that to the URL generator
-        if any([columns, filters, sort_by, top, skip]):
-            url = generate_url(url, column_dtypes, columns, filters, sort_by, top, skip)
+        # Get the URL of the dataset
+        url = generate_url(web_service_url, column_dtypes, file_format, columns, filters, sort_by, top, skip)
 
         # We will read data in a preferential order of parquet, then csv, then jsona
         # However, if the dataset is geospatial, read as a geojson first if possible
-        if 'geojson' in file_formats_urls:
+        if 'geojson' in file_formats:
             df_dataset = gpd.read_file(url, engine='pyogrio', use_arrow=True)
-        elif 'parquet' in file_formats_urls:
+        elif 'parquet' in file_formats:
             df_dataset = pd.read_parquet(url)
-        elif 'csv' in file_formats_urls:
+        elif 'csv' in file_formats:
             df_dataset = pd.read_csv(url)
-        elif 'jsona' in file_formats_urls:
+        elif 'jsona' in file_formats:
             df_dataset = pd.read_json(url)
 
         # Enforce the dtype of each column

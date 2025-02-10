@@ -29,7 +29,9 @@ to be implemented in the API call.
 """
 
 
-def generate_column_select_command(columns, column_dtypes):
+def generate_column_select_command(columns: list[str],
+                                   column_dtypes: dict
+                                  ) -> str:
     """
     Generate URL substring for column (select) command.
 
@@ -63,7 +65,9 @@ def generate_column_select_command(columns, column_dtypes):
                         f'Current type: {type(columns)}')
 
 
-def generate_filter_command(filters, column_dtypes):
+def generate_filter_command(filters: list[list[tuple]],
+                            column_dtypes: dict
+                           ) -> str:
     """
     Generate URL substring for filter command.
 
@@ -118,6 +122,8 @@ def generate_filter_command(filters, column_dtypes):
                         if op in mathmatical_operators + in_operator:
                             if isinstance(val, str):
                                 filter_string.append(f"{col} {op} '{val}'")
+                            elif isinstance(val, bool):
+                                filter_string.append(f"{col} {op} {str(val).lower()}")
                             elif isinstance(val, (list, tuple)):
                                 filter_string.append(f"{col} {op} ({','.join([f"'{str(value)}'" for value in val])})")
                             else:
@@ -161,7 +167,9 @@ def generate_filter_command(filters, column_dtypes):
                         f'Current type: {type(filters)}')
 
 
-def generate_sortby_command(sort_by, column_dtypes):
+def generate_sortby_command(sort_by: list[tuple],
+                            column_dtypes: dict
+                           ) -> str:
     """
     Generate URL substring for sort_by (orderby) command.
 
@@ -204,7 +212,7 @@ def generate_sortby_command(sort_by, column_dtypes):
                         f'Current type: {type(sort_by)}')
 
 
-def generate_top_command(top):
+def generate_top_command(top: int) -> str:
     """
     Generate URL substring for top command.
 
@@ -231,7 +239,7 @@ def generate_top_command(top):
                         f'Current type: {type(top)}')
 
 
-def generate_skip_command(skip):
+def generate_skip_command(skip: int) -> str:
     """
     Generate URL substring for skip command.
 
@@ -259,7 +267,15 @@ def generate_skip_command(skip):
 
 
 
-def generate_url(url, column_dtypes, columns, filters, sort_by, top, skip):
+def generate_url(url: str,
+                 column_dtypes: dict,
+                 file_format: str,
+                 columns: list[str],
+                 filters: list[list[tuple]],
+                 sort_by: list[tuple],
+                 top: int,
+                 skip: int
+                ) -> str:
     """
     Generates URL to query a subset of an OpenFEMA dataset.
 
@@ -269,9 +285,11 @@ def generate_url(url, column_dtypes, columns, filters, sort_by, top, skip):
         The URL of the full dataset that is to be subset.
     column_dtypes : dict
         A dictionary containing the dataset column names as the keys and dtype as the values.
+    file_format : str
+        The file format to request from the API.
     columns : list[str]
         A list of the columns to read.
-    filters : list[tuple] or list[list[tuple]]
+    filters : list[list[tuple]]
         Filter to apply to the data.
         Filter syntax: [[(column, op, val), ...],...] where column is the column name;
         op is a string operator of 'eq', 'ne', 'gt', 'ge', 'lt', 'le', 'in', 'not',
@@ -280,7 +298,6 @@ def generate_url(url, column_dtypes, columns, filters, sort_by, top, skip):
         and val is the limiting value(s).
         The innermost tuples are transposed into a set of filters applied through an `AND` operation.
         The outer list combines these sets of filters through an `OR` operation.
-        A single list of tuples can also be used, meaning that no `OR` operation between set of filters is to be conducted.
     sort_by : list[tuple]
         The sorting to apply to the data.
         Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating if the sort should be in ascending order (True is ascending, False is descending).
@@ -295,10 +312,6 @@ def generate_url(url, column_dtypes, columns, filters, sort_by, top, skip):
     url : str
         The URL of the dataset subset.
     """
-    # Extract the file format from the URL
-    base_url = f'{os.path.dirname(url)}/{os.path.splitext(os.path.basename(url))[0]}'
-    file_format = os.path.splitext(os.path.basename(url))[1][1:]
-
     # Generate any command substrings
     select_url_substring = generate_column_select_command(columns, column_dtypes)
     filter_url_substring = generate_filter_command(filters, column_dtypes)
@@ -326,4 +339,4 @@ def generate_url(url, column_dtypes, columns, filters, sort_by, top, skip):
                              allrecords_url_substring,
                              metadata_url_substring])
     url_substring = "&".join(url_substrings)
-    return f'{base_url}?{url_substring}'
+    return f'{url}?{url_substring}'
