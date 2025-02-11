@@ -20,6 +20,7 @@ dependencies = [
     "fsspec",
     "aiohttp",
     "pyarrow",
+    "pyyaml",
     "fastparquet",
     "geopandas",
 ]
