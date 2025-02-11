@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import os
 import pandas as pd
 
@@ -119,7 +122,7 @@ def generate_filter_command(filters: list[list[tuple]],
                 for filter_tuples in filters:
                     filter_string = []
                     for col, op, val in filter_tuples:
-                        if op in mathmatical_operators + in_operator:
+                        if op in mathmatical_operators + in_operator + [f'not {in_operator}']:
                             if isinstance(val, str):
                                 filter_string.append(f"{col} {op} '{val}'")
                             elif isinstance(val, bool):
@@ -129,7 +132,9 @@ def generate_filter_command(filters: list[list[tuple]],
                             else:
                                 filter_string.append(f'{col} {op} {val}')
                 
-                        elif op in parenthetical_operators:
+                        elif (op in parenthetical_operators) or (op in [
+                            f'not {parenthetical_operator}' for parenthetical_operator in parenthetical_operators
+                        ]):
                             if isinstance(val, str):
                                 filter_string.append(f"{op}({col},'{val}')")
                             elif isinstance(val, (list, tuple)):
