@@ -23,6 +23,7 @@ def test_generate_column_select_command(columns, column_dtypes):
 
     select_command_manual = '$select=' + ','.join(columns)
 
+    assert isinstance(select_command, str)
     assert select_command == select_command_manual
 
 
@@ -44,6 +45,7 @@ def test_generate_filter_command(filters, column_dtypes):
          for or_filters in filters]
     ).replace(' ', '%20')
 
+    assert isinstance(filter_command, str)
     assert filter_command == filter_command_manual
 
 
@@ -60,6 +62,7 @@ def test_generate_sortby_command(sort_by, column_dtypes):
          for column_tuple in sort_by]
     )
 
+    assert isinstance(sortby_command, str)
     assert sortby_command == sortby_command_manual
 
 
@@ -67,6 +70,7 @@ def test_generate_sortby_command(sort_by, column_dtypes):
 def test_generate_top_command(top):
     top_command = generate_top_command(top)
 
+    assert isinstance(top_command, str)
     assert top_command == f'$top={top}'
 
 
@@ -74,4 +78,5 @@ def test_generate_top_command(top):
 def test_generate_skip_command(skip):
     skip_command = generate_skip_command(skip)
 
+    assert isinstance(skip_command, str)
     assert skip_command == f'$skip={skip}'
