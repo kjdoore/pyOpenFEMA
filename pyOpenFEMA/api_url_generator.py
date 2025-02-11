@@ -1,23 +1,21 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
-import os
 import pandas as pd
 
 """
 Here is the list of possible API commands:
 
-Command        Description                                                                    Default
-$allrecords    BETA. To specify that all records are to be returned when downloading data.    false (only records up to $top returned)
-$count         To specify if a total entity count should be returned with the query.          false (the count is not returned)
-$filename      To specify the download filename.                                              None
-$filter        To filter or limit the results returned.                                       All records up to $top returned
-$format        To specify the format of the returned data.                                    JSON
-$metadata      Controls the presence of the metadata object in data set returns.              on (metadata is returned)
-$orderby       Sort the returned data.                                                        None
-$select        To specify the fields to return.                                               All fields returned
-$skip          Number of records to skip from the dataset.                                    0
-$top           Limit the number of records returned.                                          1,000 (maximum is 10,000)
+Command      Description                                                            Default
+$allrecords  To specify that all records are to be returned when downloading data.  false (only records up to $top returned)
+$count       To specify if a total entity count should be returned with the query.  false (the count is not returned)
+$filename    To specify the download filename.                                      None
+$filter      To filter or limit the results returned.                               All records up to $top returned
+$format      To specify the format of the returned data.                            JSON
+$metadata    Controls the presence of the metadata object in data set returns.      on (metadata is returned)
+$orderby     Sort the returned data.                                                None
+$select      To specify the fields to return.                                       All fields returned
+$skip        Number of records to skip from the dataset.                            0
+$top         Limit the number of records returned.                                  1,000 (maximum is 10,000)
 
 Of these, we only need to implement $filter, $select, $skip, $top, and
 $orderby in the API call as they are the only commands that subset the
@@ -34,7 +32,7 @@ to be implemented in the API call.
 
 def generate_column_select_command(columns: list[str],
                                    column_dtypes: dict
-                                  ) -> str:
+                                   ) -> str:
     """
     Generate URL substring for column (select) command.
 
@@ -53,7 +51,7 @@ def generate_column_select_command(columns: list[str],
     if isinstance(columns, list):
         # Ensure all specified columns are in the dataset
         columns_bool = pd.Series(columns).isin(column_dtypes.keys())
-        if columns_bool.all():   
+        if columns_bool.all():
             command = '$select='
             field_names = ",".join(columns)
             return command + field_names
@@ -70,7 +68,7 @@ def generate_column_select_command(columns: list[str],
 
 def generate_filter_command(filters: list[list[tuple]],
                             column_dtypes: dict
-                           ) -> str:
+                            ) -> str:
     """
     Generate URL substring for filter command.
 
@@ -97,14 +95,14 @@ def generate_filter_command(filters: list[list[tuple]],
         # Ensure all specified columns are in the dataset
         columns = [filter_tuple[0] for filter_tuples in filters for filter_tuple in filter_tuples]
         columns_bool = pd.Series(columns).isin(column_dtypes.keys())
-        
+
         if columns_bool.all():
             # Ensure all operators are valid
             mathmatical_operators = ['eq', 'ne', 'gt', 'ge', 'lt', 'le']
             in_operator = ['in']
             parenthetical_operators = ['substringof', 'endswith', 'startswith',
                                        'contains']
-            geo_operator = ['geo.intersects']            
+            geo_operator = ['geo.intersects']
             valid_operators = (mathmatical_operators
                                + in_operator
                                + parenthetical_operators
@@ -113,7 +111,7 @@ def generate_filter_command(filters: list[list[tuple]],
                                   for parenthetical_operator in (parenthetical_operators + in_operator)])
             operators = [filter_tuple[1] for filter_tuples in filters for filter_tuple in filter_tuples]
             operators_bool = pd.Series(operators).isin(valid_operators)
-            
+
             if operators_bool.all():
                 command = '$filter='
 
@@ -131,7 +129,7 @@ def generate_filter_command(filters: list[list[tuple]],
                                 filter_string.append(f"{col} {op} ({','.join([f"'{str(value)}'" for value in val])})")
                             else:
                                 filter_string.append(f'{col} {op} {val}')
-                
+
                         elif (op in parenthetical_operators) or (op in [
                             f'not {parenthetical_operator}' for parenthetical_operator in parenthetical_operators
                         ]):
@@ -141,21 +139,21 @@ def generate_filter_command(filters: list[list[tuple]],
                                 filter_string.append(f"{op}({col},({','.join([f"'{str(value)}'" for value in val])}))")
                             else:
                                 filter_string.append(f"{op}({col},{val})")
-                
+
                         elif op in geo_operator:
                             if isinstance(val, str):
                                 filter_string.append(f"{op}({col},geography'{val}')")
                             elif isinstance(val, (list, tuple)):
                                 filter_string.append(f"{op}({col},({','.join([f"'{str(value)}'" for value in val])}))")
-                
+
                     filter_strings.append(' and '.join(filter_string))
-                
+
                 filter_command = ' or '.join([f'({filter_string})' for filter_string in filter_strings])
 
                 # Replace spaces and apostrophes with http codes
                 filter_command = filter_command.replace(' ', '%20')
                 filter_command = filter_command.replace("'", "%27")
-                
+
                 return command + filter_command
             else:
                 raise ValueError('The specfied operator(s) of '
@@ -174,7 +172,7 @@ def generate_filter_command(filters: list[list[tuple]],
 
 def generate_sortby_command(sort_by: list[tuple],
                             column_dtypes: dict
-                           ) -> str:
+                            ) -> str:
     """
     Generate URL substring for sort_by (orderby) command.
 
@@ -182,7 +180,8 @@ def generate_sortby_command(sort_by: list[tuple],
     ----------
     sort_by : list[tuple]
         The sorting to apply to the data.
-        Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating if the sort should be in ascending order (True is ascending, False is descending).
+        Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating
+        if the sort should be in ascending order (True is ascending, False is descending).
         The order of each tuple expresses sorting order, with the first tuple specifying the column that is sorted first.
     column_dtypes : dict
         A dictionary containing the dataset column names as the keys and dtype as the values.
@@ -196,8 +195,8 @@ def generate_sortby_command(sort_by: list[tuple],
         # Ensure all specified columns are in the dataset
         columns = [column_tuple[0] for column_tuple in sort_by]
         columns_bool = pd.Series(columns).isin(column_dtypes.keys())
-        
-        if columns_bool.all():   
+
+        if columns_bool.all():
             command = '$orderby='
 
             sortby_order = [column_tuple[0]
@@ -271,7 +270,6 @@ def generate_skip_command(skip: int) -> str:
                         f'Current type: {type(skip)}')
 
 
-
 def generate_url(url: str,
                  column_dtypes: dict,
                  file_format: str,
@@ -280,7 +278,7 @@ def generate_url(url: str,
                  sort_by: list[tuple],
                  top: int,
                  skip: int
-                ) -> str:
+                 ) -> str:
     """
     Generates URL to query a subset of an OpenFEMA dataset.
 
@@ -305,7 +303,8 @@ def generate_url(url: str,
         The outer list combines these sets of filters through an `OR` operation.
     sort_by : list[tuple]
         The sorting to apply to the data.
-        Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating if the sort should be in ascending order (True is ascending, False is descending).
+        Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating
+        if the sort should be in ascending order (True is ascending, False is descending).
         The order of each tuple expresses sorting order, with the first tuple specifying the column that is sorted first.
     top : int
         The number of records returned.

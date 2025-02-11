@@ -19,7 +19,7 @@ class OpenFEMA():
 
     OpenFEMA API documentaion: https://www.fema.gov/about/openfema/api
     """
-    
+
     def __init__(self,
                  openapi_metadata_endpoint: str = "https://www.fema.gov/api/open/metadata/v3.0/OpenApi",
                  file_format: str = "json"):
@@ -87,7 +87,6 @@ class OpenFEMA():
             raise NotImplementedError('The parquet file containing the metadata for the '
                                       'OpenFEMA API data sets no longer exists. '
                                       'This will require a patch to the OpenFEMA package.')
-            
 
     def _validate_metadata_dataset_list(self):
         """
@@ -98,7 +97,6 @@ class OpenFEMA():
             raise NotImplementedError('The column indicating the names of the datasets in '
                                       'the metadata for the OpenFEMA API data sets has changed. '
                                       'This will require a patch to the OpenFEMA package.')
-
 
     def _check_if_dataset_exists(self, dataset: str):
         """
@@ -117,7 +115,6 @@ class OpenFEMA():
                 f'The specified dataset of {dataset} was not found in the dataset list. '
                 'Please ensure the dataset selected is correct.'
             )
-
 
     def list_datasets(self) -> list[str]:
         """
@@ -146,7 +143,6 @@ class OpenFEMA():
         # Return the list of datasets
         return list(dataset_names.sort_values())
 
-
     def dataset_info(self, dataset: str) -> dict:
         """
         Returns the metadata info on the specified dataset.
@@ -164,10 +160,10 @@ class OpenFEMA():
         self._validate_metadata_dataset_list()
 
         self._check_if_dataset_exists(dataset)
-        
+
         # Get the dataset names from the metadata dataset
         dataset_names = self.df_metadata_dataset['name']
-        
+
         # Get the dataset metadata row from the metadata dataset
         # and convert to a dictionary
         dataset_dict = self.df_metadata_dataset[dataset_names == dataset].to_dict(orient='records')[0]
@@ -178,7 +174,6 @@ class OpenFEMA():
 
         return dataset_dict
 
-
     def read_dataset(self,
                      dataset: str,
                      columns: list[str] | None = None,
@@ -187,7 +182,7 @@ class OpenFEMA():
                      top: int | None = None,
                      skip: int | None = None,
                      parse_dates: bool = True
-                    ) -> DataFrame:
+                     ) -> DataFrame:
         """
         Reads the specified dataset into a dataframe.
 
@@ -209,7 +204,8 @@ class OpenFEMA():
             The outer list combines these sets of filters through an `OR` operation.
         sort_by : list[tuple], default None
             The sorting to apply to the data.
-            Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating if the sort should be in ascending order (True is ascending, False is descending).
+            Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating if the sort
+            should be in ascending order (True is ascending, False is descending).
             The order of each tuple expresses sorting order, with the first tuple specifying the column that is sorted first.
         top : int, default None
             The number of records returned.
@@ -221,7 +217,7 @@ class OpenFEMA():
             If true, automatically parse any datetime columns into datetime dtype.
             Otherwise, set them as strings.
             Setting this to false is useful if there is an error in the datetime that prevents it from being parsed.
-        
+
         Returns
         -------
         df_dataset : DataFrame
@@ -233,7 +229,7 @@ class OpenFEMA():
 
         # Get the API URL
         web_service_url = self.dataset_info(dataset)['webService']
-        
+
         # Get the columns and dtypes of the dataset
         column_dtypes = self._get_dataset_dtype(dataset)
 
@@ -270,7 +266,6 @@ class OpenFEMA():
 
         return df_dataset
 
-
     def _get_dataset_dtype(self, dataset: str) -> dict:
         """
         Gets the dtype of each column in the given dataset.
@@ -306,12 +301,11 @@ class OpenFEMA():
 
         return column_dtypes
 
-
     def _set_dataset_dtype(self,
                            df_dataset: DataFrame,
                            column_dtypes: dict,
                            parse_dates: bool = True
-                          ) -> DataFrame:
+                           ) -> DataFrame:
         """
         Gets the dtype of each column in the given dataset.
 
@@ -341,7 +335,7 @@ class OpenFEMA():
                 # Allow for ints to accomodate NaNs. This is allowed
                 # in pandas if we use Int vs int
                 elif 'int' in dtype:
-                    non_datetime_columns[column] = dtype.capitalize()                   
+                    non_datetime_columns[column] = dtype.capitalize()
                 else:
                     non_datetime_columns[column] = dtype
 
@@ -357,8 +351,7 @@ class OpenFEMA():
                 if 'date' in dtype:
                     column_dtypes[column] = 'string'
                 elif 'int' in dtype:
-                    column_dtypes[column] = dtype.capitalize()                   
+                    column_dtypes[column] = dtype.capitalize()
 
             df_dataset = df_dataset.astype(column_dtypes)
             return df_dataset
- 

@@ -41,5 +41,3 @@ def test_read_dataset(dataset, columns, filters, sort_by, top, skip, parse_dates
         assert list(df.columns) == columns
     if top is not None:
         assert len(df) == top
-        
-    
