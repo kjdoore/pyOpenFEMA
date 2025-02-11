@@ -96,73 +96,75 @@ def generate_filter_command(filters: list[list[tuple]],
         columns = [filter_tuple[0] for filter_tuples in filters for filter_tuple in filter_tuples]
         columns_bool = pd.Series(columns).isin(column_dtypes.keys())
 
-        if columns_bool.all():
-            # Ensure all operators are valid
-            mathmatical_operators = ['eq', 'ne', 'gt', 'ge', 'lt', 'le']
-            in_operator = ['in']
-            parenthetical_operators = ['substringof', 'endswith', 'startswith',
-                                       'contains']
-            geo_operator = ['geo.intersects']
-            valid_operators = (mathmatical_operators
-                               + in_operator
-                               + parenthetical_operators
-                               + geo_operator
-                               + [f'not {parenthetical_operator}'
-                                  for parenthetical_operator in (parenthetical_operators + in_operator)])
-            operators = [filter_tuple[1] for filter_tuples in filters for filter_tuple in filter_tuples]
-            operators_bool = pd.Series(operators).isin(valid_operators)
-
-            if operators_bool.all():
-                command = '$filter='
-
-                # Loop through filter tuples and format for URL
-                filter_strings = []
-                for filter_tuples in filters:
-                    filter_string = []
-                    for col, op, val in filter_tuples:
-                        if op in mathmatical_operators + in_operator + [f'not {in_operator}']:
-                            if isinstance(val, str):
-                                filter_string.append(f"{col} {op} '{val}'")
-                            elif isinstance(val, bool):
-                                filter_string.append(f"{col} {op} {str(val).lower()}")
-                            elif isinstance(val, (list, tuple)):
-                                filter_string.append(f"{col} {op} ({','.join([f"'{str(value)}'" for value in val])})")
-                            else:
-                                filter_string.append(f'{col} {op} {val}')
-
-                        elif (op in parenthetical_operators) or (op in [
-                            f'not {parenthetical_operator}' for parenthetical_operator in parenthetical_operators
-                        ]):
-                            if isinstance(val, str):
-                                filter_string.append(f"{op}({col},'{val}')")
-                            elif isinstance(val, (list, tuple)):
-                                filter_string.append(f"{op}({col},({','.join([f"'{str(value)}'" for value in val])}))")
-                            else:
-                                filter_string.append(f"{op}({col},{val})")
-
-                        elif op in geo_operator:
-                            if isinstance(val, str):
-                                filter_string.append(f"{op}({col},geography'{val}')")
-                            elif isinstance(val, (list, tuple)):
-                                filter_string.append(f"{op}({col},({','.join([f"'{str(value)}'" for value in val])}))")
-
-                    filter_strings.append(' and '.join(filter_string))
-
-                filter_command = ' or '.join([f'({filter_string})' for filter_string in filter_strings])
-
-                # Replace spaces and apostrophes with http codes
-                filter_command = filter_command.replace(' ', '%20')
-                filter_command = filter_command.replace("'", "%27")
-
-                return command + filter_command
-            else:
-                raise ValueError('The specfied operator(s) of '
-                                 f'{list(pd.Series(operators)[~operators_bool])} '
-                                 'for filtering are not valid.')
-        else:
+        if not columns_bool.all():
             raise ValueError('The specfied column(s) of '
                              f'{list(pd.Series(columns)[~columns_bool])} '
                              'for filtering do not exist in the dataset.')
+
+        # Ensure all operators are valid
+        mathmatical_operators = ['eq', 'ne', 'gt', 'ge', 'lt', 'le']
+        in_operator = ['in']
+        parenthetical_operators = ['substringof', 'endswith', 'startswith',
+                                   'contains']
+        geo_operator = ['geo.intersects']
+        valid_operators = (mathmatical_operators
+                           + in_operator
+                           + parenthetical_operators
+                           + geo_operator
+                           + [f'not {parenthetical_operator}'
+                              for parenthetical_operator in (parenthetical_operators + in_operator)])
+        operators = [filter_tuple[1] for filter_tuples in filters for filter_tuple in filter_tuples]
+        operators_bool = pd.Series(operators).isin(valid_operators)
+
+        if not operators_bool.all():
+            raise ValueError('The specfied operator(s) of '
+                             f'{list(pd.Series(operators)[~operators_bool])} '
+                             'for filtering are not valid.')
+        command = '$filter='
+
+        # Loop through filter tuples and format for URL
+        filter_strings = []
+        for filter_tuples in filters:
+            filter_string = []
+            for col, op, val in filter_tuples:
+                if op in mathmatical_operators + in_operator + [f'not {in_operator}']:
+                    if isinstance(val, str):
+                        filter_string.append(f"{col} {op} '{val}'")
+                    elif isinstance(val, bool):
+                        filter_string.append(f"{col} {op} {str(val).lower()}")
+                    elif isinstance(val, (list, tuple)):
+                        joined_val = ','.join([f"'{str(value)}'" for value in val])
+                        filter_string.append(f"{col} {op} ({joined_val})")
+                    else:
+                        filter_string.append(f'{col} {op} {val}')
+
+                elif (op in parenthetical_operators) or (op in [
+                    f'not {parenthetical_operator}' for parenthetical_operator in parenthetical_operators
+                ]):
+                    if isinstance(val, str):
+                        filter_string.append(f"{op}({col},'{val}')")
+                    elif isinstance(val, (list, tuple)):
+                        joined_val = ','.join([f"'{str(value)}'" for value in val])
+                        filter_string.append(f"{op}({col},({joined_val}))")
+                    else:
+                        filter_string.append(f"{op}({col},{val})")
+
+                elif op in geo_operator:
+                    if isinstance(val, str):
+                        filter_string.append(f"{op}({col},geography'{val}')")
+                    elif isinstance(val, (list, tuple)):
+                        joined_val = ','.join([f"'{str(value)}'" for value in val])
+                        filter_string.append(f"{op}({col},({joined_val}))")
+
+            filter_strings.append(' and '.join(filter_string))
+
+        filter_command = ' or '.join([f'({filter_string})' for filter_string in filter_strings])
+
+        # Replace spaces and apostrophes with http codes
+        filter_command = filter_command.replace(' ', '%20')
+        filter_command = filter_command.replace("'", "%27")
+
+        return command + filter_command
     elif isinstance(filters, type(None)):
         return None
     else:
