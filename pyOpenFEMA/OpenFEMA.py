@@ -110,7 +110,7 @@ class OpenFEMA():
         self._validate_metadata_dataset_list()
 
         # Confirm the dataset is in the list of datasets
-        if pd.Series(self.list_datasets()).isin([dataset]).sum() < 1:
+        if pd.Series(self.list_datasets()).isin([dataset]).sum() != 1:
             raise ValueError(
                 f'The specified dataset of {dataset} was not found in the dataset list. '
                 'Please ensure the dataset selected is correct.'
@@ -128,11 +128,11 @@ class OpenFEMA():
         self._validate_metadata_dataset_list()
 
         # Get the dataset names from the metadata dataset
-        dataset_names = self.df_metadata_dataset['name']
+        dataset_names = self.df_metadata_dataset['name'].drop_duplicates()
 
         # Drop the two metadata datasets (Datasets and DataSetFields)
         metadata_datasets = dataset_names.str.contains('DataSet')
-        if metadata_datasets.sum() > 2:
+        if metadata_datasets.sum() > 3:
             metadata_datasets_names = list(dataset_names[metadata_datasets])
             warnings.warn("Non-metadata datasets may have been dropped from the "
                           "dataset list. Currently dropped metadata datasets: "
@@ -169,7 +169,7 @@ class OpenFEMA():
         dataset_dict = self.df_metadata_dataset[dataset_names == dataset].to_dict(orient='records')[0]
 
         # This metadata dictionary doesn't contain the columns. Let's add that.
-        column_dtypes = self._get_dataset_dtype(dataset)
+        column_dtypes = self._get_dataset_dtype(dataset, version=dataset_dict['version'])
         dataset_dict['columns'] = column_dtypes
 
         return dataset_dict
@@ -237,7 +237,7 @@ class OpenFEMA():
         web_service_url = self.dataset_info(dataset)['webService']
 
         # Get the columns and dtypes of the dataset
-        column_dtypes = self._get_dataset_dtype(dataset)
+        column_dtypes = self._get_dataset_dtype(dataset, version=self.dataset_info(dataset)['version'])
 
         # We will select the file format in a preferential order of parquet, then csv, then jsona
         # However, if the dataset is geospatial, select a geojson first if possible
@@ -256,14 +256,16 @@ class OpenFEMA():
 
         # We will read data in a preferential order of parquet, then csv, then jsona
         # However, if the dataset is geospatial, read as a geojson first if possible
-        if 'geojson' in file_formats:
+        if file_format == 'geojson':
             df_dataset = gpd.read_file(url, engine='pyogrio', use_arrow=True)
-        elif 'parquet' in file_formats:
+        elif file_format == 'parquet':
             df_dataset = pd.read_parquet(url)
-        elif 'csv' in file_formats:
+        elif file_format == 'csv':
             df_dataset = pd.read_csv(url)
-        elif 'jsona' in file_formats:
+        elif file_format == 'jsona':
             df_dataset = pd.read_json(url)
+        else:
+            raise ValueError(f"The file format of {file_format} is not supported.")
 
         # Enforce the dtype of each column
         # Limit to the requested columns
@@ -273,7 +275,7 @@ class OpenFEMA():
 
         return df_dataset
 
-    def _get_dataset_dtype(self, dataset: str) -> dict:
+    def _get_dataset_dtype(self, dataset: str, version: int) -> dict:
         """
         Gets the dtype of each column in the given dataset.
 
@@ -281,17 +283,22 @@ class OpenFEMA():
         ----------
         dataset : str
             The name of the dataset to get its columns' dtypes.
+        version : int
+            The version of the dataset.
 
         Returns
         -------
         column_dtypes : dict
             A dictionary containing the column names as the keys and dtype as the values.
         """
+        # Get the dataset with version number
+        dataset_w_version = f"v{version}-{dataset}"
+
         # The column dtypes are in the OpenAPI metadata.
         # First, get the dataset name in the OpenAPI metadata
         openapi_dataset_metadata = self.openapi_metadata['components']['schemas']
         dataset_names = list(openapi_dataset_metadata.keys())
-        dataset_openapi_name = [dataset_name for dataset_name in dataset_names if dataset == dataset_name.split('-')[-1]]
+        dataset_openapi_name = [dataset_name for dataset_name in dataset_names if dataset_w_version == dataset_name]
 
         # Confirm this is the only dataset with the OpenAPI metadata name
         if len(dataset_openapi_name) != 1:
