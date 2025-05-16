@@ -110,7 +110,7 @@ class OpenFEMA():
         self._validate_metadata_dataset_list()
 
         # Confirm the dataset is in the list of datasets
-        if pd.Series(self.list_datasets()).isin([dataset]).sum() != 1:
+        if pd.Series(self.list_datasets()).isin([dataset]).sum() < 1:
             raise ValueError(
                 f'The specified dataset of {dataset} was not found in the dataset list. '
                 'Please ensure the dataset selected is correct.'
