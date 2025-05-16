@@ -181,7 +181,8 @@ class OpenFEMA():
                      sort_by: list[tuple] | None = None,
                      top: int | None = None,
                      skip: int | None = None,
-                     parse_dates: bool = True
+                     parse_dates: bool = True,
+                     file_format: str = None,
                      ) -> DataFrame:
         """
         Reads the specified dataset into a dataframe.
@@ -217,6 +218,11 @@ class OpenFEMA():
             If true, automatically parse any datetime columns into datetime dtype.
             Otherwise, set them as strings.
             Setting this to false is useful if there is an error in the datetime that prevents it from being parsed.
+        file_format : str, default None
+            The file format of the dataset to read (e.g., 'geojson', 'parquet', 'csv', etc.).
+            Setting this keyword is useful if the automatic file format selector does not include all file formats.
+            For example, not all geospatial datasets will have the geojson file format automatically detected.
+            So, specifying it will allow for the dataset to be read as a GeoDataFrame.
 
         Returns
         -------
@@ -235,14 +241,15 @@ class OpenFEMA():
 
         # We will select the file format in a preferential order of parquet, then csv, then jsona
         # However, if the dataset is geospatial, select a geojson first if possible
-        if 'geojson' in file_formats:
-            file_format = 'geojson'
-        elif 'parquet' in file_formats:
-            file_format = 'parquet'
-        elif 'csv' in file_formats:
-            file_format = 'csv'
-        elif 'jsona' in file_formats:
-            file_format = 'jsona'
+        if file_format is None:
+            if 'geojson' in file_formats:
+                file_format = 'geojson'
+            elif 'parquet' in file_formats:
+                file_format = 'parquet'
+            elif 'csv' in file_formats:
+                file_format = 'csv'
+            elif 'jsona' in file_formats:
+                file_format = 'jsona'
 
         # Get the URL of the dataset
         url = generate_url(web_service_url, column_dtypes, file_format, columns, filters, sort_by, top, skip)
