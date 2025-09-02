@@ -1,7 +1,7 @@
 import pytest
 from pandas import DataFrame
 
-from pyOpenFEMA.OpenFEMA import OpenFEMA
+from pyOpenFEMA import OpenFEMA
 
 # Initialize an OpenFEMA object for reuse and faster testing
 openfema = OpenFEMA()
@@ -25,13 +25,13 @@ def test_dataset_info(dataset):
     assert 'webService' in info_dict.keys()
 
 
-@pytest.mark.parametrize('dataset, columns, filters, sort_by, top, skip, parse_dates',
-                         [('FemaRegions', None, None, None, None, None, True),
-                          ('FemaRegions', ['name', 'region'], [[('region', 'lt', 5)]], [('name', True)], None, None, True),
+@pytest.mark.parametrize('dataset, columns, filters, sort_by, top, skip',
+                         [('FemaRegions', None, None, None, None, None),
+                          ('FemaRegions', ['name', 'region'], [[('region', 'lt', 5)]], [('name', True)], None, None),
                           ('DeclarationDenials', ['declarationRequestNumber', 'region', 'stateAbbreviation'],
-                           [[('declarationRequestNumber', 'gt', 10)]], [('declarationRequestNumber', False)], 5, 4, False)])
-def test_read_dataset(dataset, columns, filters, sort_by, top, skip, parse_dates):
-    df = openfema.read_dataset(dataset, columns, filters, sort_by, top, skip, parse_dates)
+                           [[('declarationRequestNumber', 'gt', 10)]], [('declarationRequestNumber', False)], 5, 4)])
+def test_read_dataset(dataset, columns, filters, sort_by, top, skip):
+    df = openfema.read_dataset(dataset, columns, filters, sort_by, top, skip)
 
     assert isinstance(df, DataFrame)
     if columns is not None:
