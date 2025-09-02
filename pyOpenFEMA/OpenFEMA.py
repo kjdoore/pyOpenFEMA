@@ -8,6 +8,7 @@ import json
 import yaml
 import warnings
 from pyOpenFEMA.api_url_generator import generate_url
+from urllib.error import HTTPError
 
 if TYPE_CHECKING:
     from pandas import DataFrame
@@ -225,8 +226,10 @@ class OpenFEMA():
             The dataframe containing the dataset.
         """
         # Get the possible file formats from the metadata dataset
-        file_formats = [json.loads(format_str)['format']
-                        for format_str in self.dataset_info(dataset)['distribution']]
+        supported_file_formats = [
+            json.loads(format_str)['format']
+            for format_str in self.dataset_info(dataset)['distribution']
+        ]
 
         # Get the API URL
         web_service_url = self.dataset_info(dataset)['webService']
@@ -234,33 +237,43 @@ class OpenFEMA():
         # Get the columns and dtypes of the dataset
         column_dtypes = self._get_dataset_dtype(dataset, version=self.dataset_info(dataset)['version'])
 
-        # We will select the file format in a preferential order of parquet, then csv, then jsona
-        # However, if the dataset is geospatial, select a geojson first if possible
-        if file_format is None:
-            if 'geojson' in file_formats:
-                file_format = 'geojson'
-            elif 'parquet' in file_formats:
-                file_format = 'parquet'
-            elif 'csv' in file_formats:
-                file_format = 'csv'
-            elif 'jsona' in file_formats:
-                file_format = 'jsona'
+        # If a file format is not specified, automatically select the file format in a preferential
+        # order of geojson (if the dataset is geospatial), parquet, csv, then jsona
+        preferential_file_formats = ['geojson', 'parquet', 'csv', 'jsona']
+        supported_preferential_file_formats = [
+            preferred_file_format
+            for preferred_file_format in preferential_file_formats
+            if preferred_file_format in supported_file_formats
+        ]
+        # If specified, use that file format as first choice
+        if file_format is not None:
+            if file_format not in supported_preferential_file_formats:
+                raise ValueError(f"The specified file format of {file_format} is not supported.")
+            else:
+                supported_preferential_file_formats = (
+                    [file_format]
+                    + [i for i in supported_preferential_file_formats if i != file_format]
+                )
 
-        # Get the URL of the dataset
-        url = generate_url(web_service_url, column_dtypes, file_format, columns, filters, sort_by, top, skip)
+        # It is possible that a file format stated to be supported by the API is not
+        # If that happens, try all alternative formats
+        for file_format in supported_preferential_file_formats:
+            # Get the URL of the dataset
+            url = generate_url(web_service_url, column_dtypes, file_format, columns, filters, sort_by, top, skip)
 
-        # We will read data in a preferential order of parquet, then csv, then jsona
-        # However, if the dataset is geospatial, read as a geojson first if possible
-        if file_format == 'geojson':
-            df_dataset = gpd.read_file(url, engine='pyogrio', use_arrow=True)
-        elif file_format == 'parquet':
-            df_dataset = pd.read_parquet(url)
-        elif file_format == 'csv':
-            df_dataset = pd.read_csv(url)
-        elif file_format == 'jsona':
-            df_dataset = pd.read_json(url)
-        else:
-            raise ValueError(f"The file format of {file_format} is not supported.")
+            try:
+                if file_format == 'geojson':
+                    df_dataset = gpd.read_file(url, engine='pyogrio', use_arrow=True)
+                elif file_format == 'parquet':
+                    df_dataset = pd.read_parquet(url)
+                elif file_format == 'csv':
+                    df_dataset = pd.read_csv(url)
+                elif file_format == 'jsona':
+                    df_dataset = pd.read_json(url)
+
+                break
+            except HTTPError:
+                continue
 
         # Enforce the dtype of each column
         # Limit to the requested columns
@@ -299,7 +312,11 @@ class OpenFEMA():
         dataset_openapi_name = [dataset_name for dataset_name in dataset_names if dataset_w_version == dataset_name]
 
         # Confirm this is the only dataset with the OpenAPI metadata name
-        if len(dataset_openapi_name) != 1:
+        if len(dataset_openapi_name) == 0:
+            raise NotImplementedError(f'Version {version} of the {dataset} dataset not found '
+                                      'in the OpenFEMA API metadata. '
+                                      f'Double check this version of the dataset exists.')
+        elif len(dataset_openapi_name) != 1:
             raise NotImplementedError('Multiple possible options found for the '
                                       'dataset in the OpenFEMA API metadata. '
                                       f'Current options are {dataset_openapi_name}. This '
