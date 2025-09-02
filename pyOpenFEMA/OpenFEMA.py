@@ -181,7 +181,6 @@ class OpenFEMA():
                      sort_by: list[tuple] | None = None,
                      top: int | None = None,
                      skip: int | None = None,
-                     parse_dates: bool = True,
                      file_format: str = None,
                      ) -> DataFrame:
         """
@@ -214,10 +213,6 @@ class OpenFEMA():
         skip : int, default None
             The number of records to skip in the dataset.
             Defaults to skipping no records.
-        parse_dates : bool, default True
-            If true, automatically parse any datetime columns into datetime dtype.
-            Otherwise, set them as strings.
-            Setting this to false is useful if there is an error in the datetime that prevents it from being parsed.
         file_format : str, default None
             The file format of the dataset to read (e.g., 'geojson', 'parquet', 'csv', etc.).
             Setting this keyword is useful if the automatic file format selector does not include all file formats.
@@ -271,7 +266,10 @@ class OpenFEMA():
         # Limit to the requested columns
         if columns:
             column_dtypes = {column: dtype for column, dtype in column_dtypes.items() if column in columns}
-        df_dataset = self._set_dataset_dtype(df_dataset, column_dtypes, parse_dates=parse_dates)
+        # Limit columns to those that exist in dataset.
+        # Top can drop columns if all "top" returned rows are empty for a given column
+        column_dtypes = {column: dtype for column, dtype in column_dtypes.items() if column in df_dataset.columns}
+        df_dataset = self._set_dataset_dtype(df_dataset, column_dtypes)
 
         return df_dataset
 
@@ -318,7 +316,6 @@ class OpenFEMA():
     def _set_dataset_dtype(self,
                            df_dataset: DataFrame,
                            column_dtypes: dict,
-                           parse_dates: bool = True
                            ) -> DataFrame:
         """
         Gets the dtype of each column in the given dataset.
@@ -329,10 +326,6 @@ class OpenFEMA():
             The dataframe containing the dataset.
         column_dtypes : dict
             A dictionary containing the column names as the keys and dtype as the values.
-        parse_dates : bool, default True
-            If true, automatically parse any datetime columns into datetime dtype.
-            Otherwise, set them as strings.
-            Setting this to false is useful if there is an error in the datetime that prevents it from being parsed.
 
         Returns
         -------
@@ -340,32 +333,20 @@ class OpenFEMA():
             The dataframe containing the dataset with its dtypes set.
         """
         # Convert dtypes of date or date-time to datetimes
-        if parse_dates:
-            non_datetime_columns = {}
-            datetime_columns = []
-            for column, dtype in column_dtypes.items():
-                if 'date' in dtype:
-                    datetime_columns.append(column)
-                # Allow for ints to accomodate NaNs. This is allowed
-                # in pandas if we use Int vs int
-                elif 'int' in dtype:
-                    non_datetime_columns[column] = dtype.capitalize()
-                else:
-                    non_datetime_columns[column] = dtype
+        non_datetime_columns = {}
+        datetime_columns = []
+        for column, dtype in column_dtypes.items():
+            if 'date' in dtype:
+                datetime_columns.append(column)
+            # Allow for ints to accomodate NaNs. This is allowed
+            # in pandas if we use Int vs int
+            elif 'int' in dtype:
+                non_datetime_columns[column] = dtype.capitalize()
+            else:
+                non_datetime_columns[column] = dtype
 
-            df_dataset = df_dataset.astype(non_datetime_columns)
-            for datetime_column in datetime_columns:
-                df_dataset[datetime_column] = pd.to_datetime(df_dataset[datetime_column])
+        df_dataset = df_dataset.astype(non_datetime_columns)
+        for datetime_column in datetime_columns:
+            df_dataset[datetime_column] = pd.to_datetime(df_dataset[datetime_column], errors='coerce')
 
-            return df_dataset
-
-        # If not parsing dates, set the dates as strings
-        else:
-            for column, dtype in column_dtypes.items():
-                if 'date' in dtype:
-                    column_dtypes[column] = 'string'
-                elif 'int' in dtype:
-                    column_dtypes[column] = dtype.capitalize()
-
-            df_dataset = df_dataset.astype(column_dtypes)
-            return df_dataset
+        return df_dataset
