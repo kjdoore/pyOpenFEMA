@@ -6,7 +6,7 @@ It is a wrapper around the OpenFEMA API, which allows for direct reading of data
 Users can either read in the full dataset or read in a subset of a dataset.
 
 Please report any bugs, suggest enhancements, or ask questions by creating an [issue](https://github.com/kjdoore/pyOpenFEMA/issues).
-  
+
 ## Installation
 The package can be installed using pip
 ```sh
@@ -17,7 +17,7 @@ pip install pyOpenFEMA
 At a basic level, a dataset can be read with:
 
 ```python
-from pyOpenFEMA.OpenFEMA import OpenFEMA
+from pyOpenFEMA import OpenFEMA
 
 # Initialize the OpenFEMA session
 openfema = OpenFEMA()
