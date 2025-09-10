@@ -7,7 +7,7 @@ import geopandas as gpd
 import json
 import yaml
 import warnings
-from pyOpenFEMA.api_url_generator import generate_url
+from pyOpenFEMA.api_url_generator import *
 from urllib.error import HTTPError
 
 if TYPE_CHECKING:
@@ -175,6 +175,91 @@ class OpenFEMA():
 
         return dataset_dict
 
+    def generate_url(self,
+                     dataset: str,
+                     columns: list[str] | None = None,
+                     filters: list[list[tuple]] | None = None,
+                     sort_by: list[tuple] | None = None,
+                     top: int | None = None,
+                     skip: int | None = None,
+                     file_format: str = None,
+                     ) -> str:
+        """
+        Generates URL to query a subset of an OpenFEMA dataset.
+
+        Parameters
+        ----------
+        dataset : str
+            The name of the dataset to read.
+        columns : list[str], default None
+            A list of the columns to read.
+            Defaults to None, meaning all columns are read.
+        filters : list[list[tuple]], default None
+            Filter to apply to the data.
+            Filter syntax: [[(column, op, val), ...],...] where column is the column name;
+            op is a string operator of 'eq', 'ne', 'gt', 'ge', 'lt', 'le', 'in', 'not',
+            'substringof', 'endswith', 'startswith', 'contains', or 'geo.intersects'
+            (See https://www.fema.gov/about/openfema/api#filter for details on each operator);
+            and val is the limiting value(s).
+            The innermost tuples are transposed into a set of filters applied through an `AND` operation.
+            The outer list combines these sets of filters through an `OR` operation.
+        sort_by : list[tuple], default None
+            The sorting to apply to the data.
+            Sort syntax: [(column, ascending), ...]  where ascending is a boolen indicating if the sort
+            should be in ascending order (True is ascending, False is descending).
+            The order of each tuple expresses sorting order, with the first tuple specifying the column that is sorted first.
+        top : int, default None
+            The number of records returned.
+            Defaults to returning all records the meet the specified criteria.
+        skip : int, default None
+            The number of records to skip in the dataset.
+            Defaults to skipping no records.
+        file_format : str, default None
+            The file format of the dataset to read (e.g., 'geojson', 'parquet', 'csv', etc.).
+            Setting this keyword is useful if the automatic file format selector does not include all file formats.
+            For example, not all geospatial datasets will have the geojson file format automatically detected.
+            So, specifying it will allow for the dataset to be read as a GeoDataFrame.
+
+        Returns
+        -------
+        url : str
+            The URL of the dataset subset.
+        """
+        # Get the API URL
+        web_service_url = self.dataset_info(dataset)['webService']
+
+        # Get the columns and dtypes of the dataset
+        column_dtypes = self._get_dataset_dtype(dataset, version=self.dataset_info(dataset)['version'])
+
+        # Generate any command substrings
+        select_url_substring = generate_column_select_command(columns, column_dtypes)
+        filter_url_substring = generate_filter_command(filters, column_dtypes)
+        orderby_url_substring = generate_sortby_command(sort_by, column_dtypes)
+        top_url_substring = generate_top_command(top)
+        skip_url_substring = generate_skip_command(skip)
+        # Get all records of subset if not requesting a top subset
+        if top_url_substring is None:
+            allrecords_url_substring = '$allrecords=true'
+        else:
+            allrecords_url_substring = None
+        # We dont want the metadata returned
+        metadata_url_substring = '$metadata=off'
+        # Generate the file format substring
+        format_url_substring = f'$format={file_format}'
+
+        # Combine substrings
+        url_substrings = filter(None,
+                                [format_url_substring,
+                                 select_url_substring,
+                                 filter_url_substring,
+                                 orderby_url_substring,
+                                 top_url_substring,
+                                 skip_url_substring,
+                                 allrecords_url_substring,
+                                 metadata_url_substring])
+        url_substring = "&".join(url_substrings)
+        return f'{web_service_url}?{url_substring}'
+
     def read_dataset(self,
                      dataset: str,
                      columns: list[str] | None = None,
@@ -231,9 +316,6 @@ class OpenFEMA():
             for format_str in self.dataset_info(dataset)['distribution']
         ]
 
-        # Get the API URL
-        web_service_url = self.dataset_info(dataset)['webService']
-
         # Get the columns and dtypes of the dataset
         column_dtypes = self._get_dataset_dtype(dataset, version=self.dataset_info(dataset)['version'])
 
@@ -259,17 +341,17 @@ class OpenFEMA():
         # If that happens, try all alternative formats
         for file_format in supported_preferential_file_formats:
             # Get the URL of the dataset
-            url = generate_url(web_service_url, column_dtypes, file_format, columns, filters, sort_by, top, skip)
+            file_url = self.generate_url(dataset, columns, filters, sort_by, top, skip, file_format)
 
             try:
                 if file_format == 'geojson':
-                    df_dataset = gpd.read_file(url, engine='pyogrio', use_arrow=True)
+                    df_dataset = gpd.read_file(file_url, engine='pyogrio', use_arrow=True)
                 elif file_format == 'parquet':
-                    df_dataset = pd.read_parquet(url)
+                    df_dataset = pd.read_parquet(file_url)
                 elif file_format == 'csv':
-                    df_dataset = pd.read_csv(url)
+                    df_dataset = pd.read_csv(file_url)
                 elif file_format == 'jsona':
-                    df_dataset = pd.read_json(url)
+                    df_dataset = pd.read_json(file_url)
 
                 break
             except HTTPError:
