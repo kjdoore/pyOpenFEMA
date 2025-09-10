@@ -7,7 +7,7 @@ import geopandas as gpd
 import json
 import yaml
 import warnings
-from pyOpenFEMA.api_url_generator import *
+from pyOpenFEMA.api_url_command_generators import *
 from urllib.error import HTTPError
 
 if TYPE_CHECKING:

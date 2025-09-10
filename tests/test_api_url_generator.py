@@ -1,6 +1,6 @@
 import pytest
 
-from pyOpenFEMA.api_url_generator import *
+from pyOpenFEMA.api_url_command_generators import *
 
 
 @pytest.fixture
